@@ -1,0 +1,5 @@
+package: puregobpf
+import:
+- package: golang.org/x/sys
+  subpackages:
+  - unix

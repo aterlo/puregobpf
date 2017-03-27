@@ -51,12 +51,12 @@ const (
 	bpfMapTypeCgroupArray    = iota
 )
 
-type mapKey interface {
-	getDataPtr() uintptr
+type MapKey interface {
+	GetDataPtr() uintptr
 }
 
-type mapEntry interface {
-	getDataPtr() uintptr
+type MapEntry interface {
+	GetDataPtr() uintptr
 }
 
 type bpfMapCreateAttr struct {
@@ -101,13 +101,13 @@ type bpfMapUpdateElemAttr struct {
 }
 
 // FIXME: Not complete, doesn't handle error codes.
-func BpfMapUpdateElem(fd int, key mapKey, entry mapEntry, flags uint32) {
+func BpfMapUpdateElem(fd int, key MapKey, entry MapEntry, flags uint32) {
 	attrs := bpfMapUpdateElemAttr{}
 	attrs.fd = uint32(fd)
 	//attrs.key = uintptr(unsafe.Pointer(&key))
 	//attrs.value = uintptr(unsafe.Pointer(&value))
-	attrs.key = key.getDataPtr()
-	attrs.value = entry.getDataPtr()
+	attrs.key = key.GetDataPtr()
+	attrs.value = entry.GetDataPtr()
 
 	r1, r2, serr := unix.Syscall(bpfSysCallNum, uintptr(bpfCmdMapUpdateElem), uintptr(unsafe.Pointer(&attrs)), uintptr(unsafe.Sizeof(attrs)))
 	if serr != 0 {
@@ -124,12 +124,12 @@ type bpfMapLookupElemAttr struct {
 }
 
 //func BpfMapLookupElem(fd int, key interface{}) (bool, interface{}, error) {
-func BpfMapLookupElem(fd int, key mapKey, entry mapEntry) (bool, error) {
+func BpfMapLookupElem(fd int, key MapKey, entry MapEntry) (bool, error) {
 
 	attrs := bpfMapLookupElemAttr{}
 	attrs.fd = uint32(fd)
-	attrs.key = key.getDataPtr()
-	attrs.value = entry.getDataPtr()
+	attrs.key = key.GetDataPtr()
+	attrs.value = entry.GetDataPtr()
 
 	r1, _, serr := unix.Syscall(bpfSysCallNum, uintptr(bpfCmdMapLookupElem), uintptr(unsafe.Pointer(&attrs)), uintptr(unsafe.Sizeof(attrs)))
 	ret := int64(r1)
@@ -153,10 +153,10 @@ type bpfMapDeleteElemAttr struct {
 }
 
 // FIXME: Not complete, doesn't handle error codes.
-func BpfMapDeleteElem(fd int, key mapKey) {
+func BpfMapDeleteElem(fd int, key MapKey) {
 	attrs := bpfMapDeleteElemAttr{}
 	attrs.fd = uint32(fd)
-	attrs.key = key.getDataPtr()
+	attrs.key = key.GetDataPtr()
 
 	r1, r2, serr := unix.Syscall(bpfSysCallNum, uintptr(bpfCmdMapDeleteElem), uintptr(unsafe.Pointer(&attrs)), uintptr(unsafe.Sizeof(attrs)))
 	if serr != 0 {
@@ -173,11 +173,11 @@ type bpfMapGetNextKeyAttr struct {
 	//pad     [48 - 28]byte
 }
 
-func BpfMapGetNextKey(fd int, key mapKey, result mapKey) (bool, error) {
+func BpfMapGetNextKey(fd int, key MapKey, result MapKey) (bool, error) {
 	attrs := bpfMapGetNextKeyAttr{}
 	attrs.fd = uint32(fd)
-	attrs.key = key.getDataPtr()
-	attrs.nextKey = result.getDataPtr()
+	attrs.key = key.GetDataPtr()
+	attrs.nextKey = result.GetDataPtr()
 
 	r1, r2, serr := unix.Syscall(bpfSysCallNum, uintptr(bpfCmdMapGetNextKey), uintptr(unsafe.Pointer(&attrs)), uintptr(unsafe.Sizeof(attrs)))
 

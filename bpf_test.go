@@ -11,7 +11,7 @@ type key struct {
 	b uint32
 }
 
-func (k *key) getDataPtr() uintptr {
+func (k *key) GetDataPtr() uintptr {
 	return uintptr(unsafe.Pointer(k))
 }
 
@@ -20,7 +20,7 @@ type entry struct {
 	valueB uint64
 }
 
-func (e *entry) getDataPtr() uintptr {
+func (e *entry) GetDataPtr() uintptr {
 	return uintptr(unsafe.Pointer(e))
 }
 

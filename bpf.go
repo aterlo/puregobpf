@@ -16,7 +16,7 @@ import (
 
 const bpfSysCallNum = 321 // x86_64.
 const bpfInsnLen = 8
-const bpfVerifierDebugBufLen = 32384
+const bpfVerifierDebugBufLen = 65536
 
 const (
 	bpfCmdMapCreate     = iota

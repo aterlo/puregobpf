@@ -100,20 +100,24 @@ type bpfMapUpdateElemAttr struct {
 	flags uintptr
 }
 
-// FIXME: Not complete, doesn't handle error codes.
-func BpfMapUpdateElem(fd int, key MapKey, entry MapEntry, flags uint32) {
+func BpfMapUpdateElem(fd int, key MapKey, entry MapEntry, flags uint32) (bool, error) {
 	attrs := bpfMapUpdateElemAttr{}
 	attrs.fd = uint32(fd)
-	//attrs.key = uintptr(unsafe.Pointer(&key))
-	//attrs.value = uintptr(unsafe.Pointer(&value))
 	attrs.key = key.GetDataPtr()
 	attrs.value = entry.GetDataPtr()
 
-	r1, r2, serr := unix.Syscall(bpfSysCallNum, uintptr(bpfCmdMapUpdateElem), uintptr(unsafe.Pointer(&attrs)), uintptr(unsafe.Sizeof(attrs)))
-	if serr != 0 {
-		fmt.Println("BpfMapUpdateElem syscall failure", r1, r2, serr)
-		//return -1, serr
+	r1, _, serr := unix.Syscall(bpfSysCallNum, uintptr(bpfCmdMapUpdateElem), uintptr(unsafe.Pointer(&attrs)), uintptr(unsafe.Sizeof(attrs)))
+	ret := int64(r1)
+	if ret != 0 { // Error.
+		if serr == syscall.ENOENT {
+			return false, errors.New("syscall result errno=ENOENT")
+		}
+
+		// Other error of some kind.
+		return false, errors.New("syscall result unknown")
 	}
+
+	return true, nil
 }
 
 type bpfMapLookupElemAttr struct {
@@ -123,9 +127,7 @@ type bpfMapLookupElemAttr struct {
 	flags uintptr
 }
 
-//func BpfMapLookupElem(fd int, key interface{}) (bool, interface{}, error) {
 func BpfMapLookupElem(fd int, key MapKey, entry MapEntry) (bool, error) {
-
 	attrs := bpfMapLookupElemAttr{}
 	attrs.fd = uint32(fd)
 	attrs.key = key.GetDataPtr()
@@ -139,6 +141,7 @@ func BpfMapLookupElem(fd int, key MapKey, entry MapEntry) (bool, error) {
 			// Key not found. Not really an error.
 			return false, nil
 		}
+
 		return false, serr
 	}
 
@@ -152,17 +155,24 @@ type bpfMapDeleteElemAttr struct {
 	flags uintptr
 }
 
-// FIXME: Not complete, doesn't handle error codes.
-func BpfMapDeleteElem(fd int, key MapKey) {
+func BpfMapDeleteElem(fd int, key MapKey) (bool, error) {
 	attrs := bpfMapDeleteElemAttr{}
 	attrs.fd = uint32(fd)
 	attrs.key = key.GetDataPtr()
 
-	r1, r2, serr := unix.Syscall(bpfSysCallNum, uintptr(bpfCmdMapDeleteElem), uintptr(unsafe.Pointer(&attrs)), uintptr(unsafe.Sizeof(attrs)))
-	if serr != 0 {
-		fmt.Println("BpfMapDeleteElem syscall failure", r1, r2, serr)
-		//return -1, serr
+	r1, _, serr := unix.Syscall(bpfSysCallNum, uintptr(bpfCmdMapDeleteElem), uintptr(unsafe.Pointer(&attrs)), uintptr(unsafe.Sizeof(attrs)))
+	ret := int64(r1)
+
+	if ret != 0 { // Error.
+		if serr == syscall.ENOENT {
+			// Delete failed because the key was not present.
+			return false, nil
+		}
+
+		return false, serr
 	}
+
+	return true, nil
 }
 
 type bpfMapGetNextKeyAttr struct {

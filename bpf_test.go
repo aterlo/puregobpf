@@ -63,7 +63,13 @@ func TestBpfMapOperations(t *testing.T) {
 	// Add an entry to the map.
 	myEntry.valueA = 8888
 	myEntry.valueB = 9999
-	BpfMapUpdateElem(mapNameToFd["map1"], &myKey, &myEntry, 0)
+	updated, err := BpfMapUpdateElem(mapNameToFd["map1"], &myKey, &myEntry, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !updated {
+		t.Fatal("Element should have been updated.")
+	}
 
 	// Now search the map and verify we get the correct data back.
 	found, err = BpfMapLookupElem(mapNameToFd["map1"], &myKey, &myEntry)
@@ -83,7 +89,13 @@ func TestBpfMapOperations(t *testing.T) {
 	}
 
 	// Now delete the entry.
-	BpfMapDeleteElem(mapNameToFd["map1"], &myKey)
+	deleted, err := BpfMapDeleteElem(mapNameToFd["map1"], &myKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !deleted {
+		t.Fatal("Key should have been deleted.")
+	}
 
 	// Verify that the key/entry is gone from the map.
 	found, err = BpfMapLookupElem(mapNameToFd["map1"], &myKey, &myEntry)
@@ -96,13 +108,25 @@ func TestBpfMapOperations(t *testing.T) {
 	}
 
 	// Add multiple entries to the map and verify that we can iterate over the map.
-	BpfMapUpdateElem(mapNameToFd["map1"], &myKey, &myEntry, 0)
+	updated, err = BpfMapUpdateElem(mapNameToFd["map1"], &myKey, &myEntry, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !updated {
+		t.Fatal("Element should have been updated.")
+	}
 
 	myKey.a = 333
 	myKey.b = 444
 	myEntry.valueA = 6666
 	myEntry.valueB = 7777
-	BpfMapUpdateElem(mapNameToFd["map1"], &myKey, &myEntry, 0)
+	updated, err = BpfMapUpdateElem(mapNameToFd["map1"], &myKey, &myEntry, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !updated {
+		t.Fatal("Element should have been updated.")
+	}
 
 	var keys []key
 	iKey := key{0, 0} // Start the iteration with a key that won't be found.

@@ -15,6 +15,35 @@ func (k *key) GetDataPtr() uintptr {
 	return uintptr(unsafe.Pointer(k))
 }
 
+func keyGetKeys(fd int) ([]key, error) {
+	var k key // Assumes 0 value isn't a valid key.
+	var nextK key
+	var keys []key
+
+	more, err := BpfMapGetNextKey(fd, &k, &nextK)
+	if err != nil {
+		return nil, err
+	}
+	k = nextK
+
+	for more {
+		more, err := BpfMapGetNextKey(fd, &k, &nextK)
+		if err != nil {
+			return nil, err
+		}
+
+		keys = append(keys, k)
+
+		if !more {
+			break
+		}
+
+		k = nextK
+	}
+
+	return keys, nil
+}
+
 type entry struct {
 	valueA uint64
 	valueB uint64
@@ -22,6 +51,144 @@ type entry struct {
 
 func (e *entry) GetDataPtr() uintptr {
 	return uintptr(unsafe.Pointer(e))
+}
+
+func TestGetKeysEmpty(t *testing.T) {
+	file := "bpf/simple_map.o"
+	sections := []string{"classifier"}
+	sectionNameToFd := make(map[string]int)
+	mapNameToFd := make(map[string]int)
+
+	err1, err2 := BpfLoadProg(file, sections, sectionNameToFd, mapNameToFd)
+	if err1 != nil {
+		t.Fatal("err1:", err1)
+	}
+	if err2 != nil {
+		t.Fatal("err2:", err2)
+		t.Fail()
+	}
+
+	keys, err := keyGetKeys(mapNameToFd["map1"])
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(keys) != 0 {
+		t.Fatal("Wrong number of keys:", len(keys))
+	}
+}
+
+func TestGetKeys(t *testing.T) {
+	file := "bpf/simple_map.o"
+	sections := []string{"classifier"}
+	sectionNameToFd := make(map[string]int)
+	mapNameToFd := make(map[string]int)
+
+	err1, err2 := BpfLoadProg(file, sections, sectionNameToFd, mapNameToFd)
+	if err1 != nil {
+		t.Fatal("err1:", err1)
+	}
+	if err2 != nil {
+		t.Fatal("err2:", err2)
+		t.Fail()
+	}
+
+	// Add an entry to the map.
+	myKey := key{111, 222}
+	myEntry := entry{}
+	myEntry.valueA = 8888
+	myEntry.valueB = 9999
+	updated, err := BpfMapUpdateElem(mapNameToFd["map1"], &myKey, &myEntry, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !updated {
+		t.Fatal("Element should have been updated.")
+	}
+
+	keys, err := keyGetKeys(mapNameToFd["map1"])
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(keys) != 1 {
+		t.Log("Wrong number of entries in the map:", len(keys))
+		t.Fail()
+	}
+
+	if keys[0].a != 111 || keys[0].b != 222 {
+		t.Fatal("Bad key:", keys[0].a, keys[0].b)
+	}
+
+	// Add a second entry.
+	myKey.a = 333
+	myKey.b = 444
+	myEntry.valueA = 8888
+	myEntry.valueB = 9999
+	updated, err = BpfMapUpdateElem(mapNameToFd["map1"], &myKey, &myEntry, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !updated {
+		t.Fatal("Element should have been updated.")
+	}
+
+	keys, err = keyGetKeys(mapNameToFd["map1"])
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(keys) != 2 {
+		t.Fatal("Wrong number of entries in the map:", len(keys))
+	}
+
+	var count int
+	for _, k := range keys {
+		if k.a == 111 && k.b == 222 {
+			count++
+		} else if k.a == 333 && k.b == 444 {
+			count++
+		}
+	}
+	if count != 2 {
+		t.Fatal("Wrong keys.")
+	}
+
+	// Now a third entry.
+	myKey.a = 555
+	myKey.b = 666
+	myEntry.valueA = 8888
+	myEntry.valueB = 9999
+	updated, err = BpfMapUpdateElem(mapNameToFd["map1"], &myKey, &myEntry, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !updated {
+		t.Fatal("Element should have been updated.")
+	}
+
+	keys, err = keyGetKeys(mapNameToFd["map1"])
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(keys) != 3 {
+		t.Fatal("Wrong number of entries in the map:", len(keys))
+	}
+
+	count = 0
+	for _, k := range keys {
+		if k.a == 111 && k.b == 222 {
+			count++
+		} else if k.a == 333 && k.b == 444 {
+			count++
+		} else if k.a == 555 && k.b == 666 {
+			count++
+		}
+	}
+	if count != 3 {
+		t.Fatal("Wrong keys:", keys)
+	}
 }
 
 func TestBpfMapOperations(t *testing.T) {
@@ -128,27 +295,13 @@ func TestBpfMapOperations(t *testing.T) {
 		t.Fatal("Element should have been updated.")
 	}
 
-	var keys []key
-	iKey := key{0, 0} // Start the iteration with a key that won't be found.
-	var nextKey key
-
-	for {
-		found, err := BpfMapGetNextKey(mapNameToFd["map1"], &iKey, &nextKey)
-		if err != nil {
-			t.Log(err)
-			break
-		}
-
-		if !found {
-			break
-		}
-
-		keys = append(keys, nextKey)
-		iKey = nextKey
+	keys, err := keyGetKeys(mapNameToFd["map1"])
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	if len(keys) != 2 {
-		t.Log("Wrong number of entries in the map.")
+		t.Log("Wrong number of entries in the map:", len(keys))
 		t.Fail()
 	}
 }

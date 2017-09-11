@@ -183,6 +183,9 @@ type bpfMapGetNextKeyAttr struct {
 	//pad     [48 - 28]byte
 }
 
+// BpfMapGetNextKey gets the next key after 'key' and stores it in 'result'.
+// It returns true if there are more keys in the map, false if this is the last key
+// or if there is an error.
 func BpfMapGetNextKey(fd int, key MapKey, result MapKey) (bool, error) {
 	attrs := bpfMapGetNextKeyAttr{}
 	attrs.fd = uint32(fd)
@@ -193,7 +196,7 @@ func BpfMapGetNextKey(fd int, key MapKey, result MapKey) (bool, error) {
 
 	if serr != 0 {
 		if serr == syscall.ENOENT {
-			// The key that was search for was the last one in the map. The end.
+			// The key that was searched for was the last one in the map. The end.
 			return false, nil
 		} else if serr == syscall.EINVAL {
 			fmt.Println("BpfMapGetNextKey syscall failure EINVAL:", r1, r2, serr)

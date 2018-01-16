@@ -49,6 +49,13 @@ const (
 	bpfMapTypePerCpuArray    = iota
 	bpfMapTypeStackTrace     = iota
 	bpfMapTypeCgroupArray    = iota
+	bpfMapTypeLruHash        = iota
+	bpfMapTypeLruPerCpuHash  = iota
+	bpfMapTypeLpmTrie        = iota
+	bpfMapTypeArrayOfMaps    = iota
+	bpfMapTypeHashOfMaps     = iota
+	bpfMapTypeDevMap         = iota
+	bpfMapTypeSockMap        = iota
 )
 
 type MapKey interface {
@@ -100,6 +107,7 @@ type bpfMapUpdateElemAttr struct {
 	flags uintptr
 }
 
+// BpfMapUpdateElem updates the position key in map fd with entry.
 func BpfMapUpdateElem(fd int, key MapKey, entry MapEntry, flags uint32) (bool, error) {
 	attrs := bpfMapUpdateElemAttr{}
 	attrs.fd = uint32(fd)
@@ -111,10 +119,12 @@ func BpfMapUpdateElem(fd int, key MapKey, entry MapEntry, flags uint32) (bool, e
 	if ret != 0 { // Error.
 		if serr == syscall.ENOENT {
 			return false, errors.New("syscall result errno=ENOENT")
+		} else if serr == syscall.EINVAL {
+			return false, errors.New("syscall result errno=EINVAL")
 		}
 
 		// Other error of some kind.
-		return false, errors.New("syscall result unknown")
+		return false, fmt.Errorf("syscall result unknown: %s", serr)
 	}
 
 	return true, nil
@@ -336,9 +346,11 @@ type bpfElfMap struct {
 	Flags     uint32
 	Id        uint32
 	Pinning   uint32
+	InnerID   uint32
+	InnerIDx  uint32
 }
 
-const bpfElfMapLen = 28 // TODO: Use SizeOf instead?
+const bpfElfMapLen = 36 // TODO: Use SizeOf instead?
 
 // bpfLoadMapsData extracts the details of the maps used in this eBPF program from the "maps" section
 // of the ELF file. If the "maps" section is not present, it returns an empty slice.

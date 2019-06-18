@@ -282,25 +282,25 @@ func BpfLoadProg(file string, sections []string, sectionNameToFd map[string]int,
 		// Get the ELF relocation section associated with the section being loaded.
 		relocSection := getElfRelatedRelocSection(elfF, section)
 		if len(maps) > 0 && relocSection == nil {
-			return nil, errors.New("There are maps defined but no related relocation section was found.")
-		}
+			// This program doesn't have a reloc section
+		} else {
+			// Do map relocations (if any).
+			if relocSection != nil {
+				relocs, err := getBpfRelocationsFromSection(elfF, relocSection)
+				if err != nil {
+					return nil, err
+				}
 
-		// Do map relocations (if any).
-		if relocSection != nil {
-			relocs, err := getBpfRelocationsFromSection(elfF, relocSection)
-			if err != nil {
-				return nil, err
-			}
+				err = doBpfMapRelocation(insns, relocs, mapFds)
+				if err != nil {
+					return nil, err
+				}
 
-			err = doBpfMapRelocation(insns, relocs, mapFds)
-			if err != nil {
-				return nil, err
-			}
-
-			// Build a map which goes from map_name to the fd. This will be used by the calling application to know what
-			// fds to use. Note this is slightly inefficient since it hits each symbol more than once. Ahh well.
-			for _, reloc := range relocs {
-				mapNameToFd[reloc.name] = mapFds[reloc.value]
+				// Build a map which goes from map_name to the fd. This will be used by the calling application to know what
+				// fds to use. Note this is slightly inefficient since it hits each symbol more than once. Ahh well.
+				for _, reloc := range relocs {
+					mapNameToFd[reloc.name] = mapFds[reloc.value]
+				}
 			}
 		}
 
